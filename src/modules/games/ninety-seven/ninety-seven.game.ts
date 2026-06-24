@@ -22,10 +22,14 @@ type NinetySevenState = {
 
 export default class NinetySevenGame extends BaseGame<NinetySevenState> {
 
+    private readonly MAX_CARDS = 4;
+    private static readonly LEFT_DIR = -1;
+    private static readonly RIGHT_DIR = 1;
+
     public constructor(data: GameData<NinetySevenState>) {
         super(data, {
             currentPlayerIdx: 0,
-            direction: 1,
+            direction: NinetySevenGame.RIGHT_DIR,
             players: {},
             deck: shuffleDeck(createDeck56()),
             discardPile: [],
@@ -41,7 +45,7 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
                     announcedTotal: number;
                 }
                 const state = this.getState();
-                if(data.cardIdx < 0 || data.cardIdx >= 4) {
+                if(data.cardIdx < 0 || data.cardIdx >= this.MAX_CARDS) {
                     throw new Error("Invalid cardIdx");
                 }
                 if(this.getPlayers().at(state.currentPlayerIdx)?.id !== playerId) {
@@ -73,7 +77,7 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
                 cards: []
             };
 
-            while (state.players[id].cards.length < 4) {
+            while (state.players[id].cards.length < this.MAX_CARDS) {
                 const card = this.drawCard(id, state);
                 if (!card) break;
             }
@@ -172,8 +176,9 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
 
     private changeDirection(state: NinetySevenState) {
         this.updateState({
-            direction: state.direction 
-                === 1 ? -1 : 1
+            direction: state.direction  === NinetySevenGame.RIGHT_DIR 
+                    ? NinetySevenGame.LEFT_DIR 
+                    : NinetySevenGame.RIGHT_DIR
         });
     }
 }
