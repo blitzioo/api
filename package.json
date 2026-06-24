@@ -1,0 +1,40 @@
+{
+  "name": "api",
+  "version": "2.0.2",
+  "scripts": {
+    "start:dev": "nodemon --watch \"src/**\" --ext \"ts,json, graphql\" --ignore \"src/**/*.spec.ts\" --exec \"npx tsx src/index.ts\"",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "ts-typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.8.5",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.22.5",
+    "nanoid": "^5.1.15",
+    "nodemon": "^3.1.11",
+    "redis": "^6.0.0",
+    "sequelize": "^6.37.8",
+    "socket.io": "^4.8.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "prettier": "^3.8.0",
+    "socket.io-client": "^4.8.3"
+  }
+}

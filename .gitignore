@@ -1,0 +1,15 @@
+node_modules
+.env
+dist/*
+.DS_Store
+.vscode
+coverage/*
+old/
+dist/
+logs/
+keys/*
+data/
+
+config/*.env
+!config/*.example.env
+!config/app.env

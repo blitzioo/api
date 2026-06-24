@@ -1,0 +1,30 @@
+name: ${APP_NAME}-api
+services:
+  redis:
+    image: redis:8.8.0-alpine
+    ports:
+      - "6379:6379"
+  database:
+    image: mariadb:11.7.2
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: root_password
+      MARIADB_DATABASE: ledernierverre
+      MARIADB_USER: ledernierverre
+      MARIADB_PASSWORD: ledernierverre_password
+    volumes:
+      - ../../data/mariadb:/var/lib/mysql
+  app:
+    build:
+      context: ../..
+      dockerfile: .docker/dev/Dockerfile
+    volumes:
+      - ../..:/usr/src/app
+    ports:
+      - "3000:3000"
+    environment:
+      TZ: Europe/Paris
+    depends_on:
+      - redis
+      - database
