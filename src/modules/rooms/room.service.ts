@@ -9,6 +9,10 @@ export default class RoomService {
     private readonly roomRepository = new RoomRepository();
     private readonly gameSessionRepository = new GameSessionRepository();
 
+    public async getRoom(code: string) {
+        return this.roomRepository.findByCode(code);
+    }
+
     public async createRoom(
         hostId: string,
         hostUsername: string,

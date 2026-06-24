@@ -5,7 +5,7 @@ export enum GameEnum {
     NINETY_SEVEN = "ninety-seven"
 }
 
-type GameConstructor = new (...args: any[]) => BaseGame;
+type GameConstructor = new (...args: any[]) => BaseGame<{}>;
 
 export const gameClasses: Record<GameEnum, GameConstructor> = {
     [GameEnum.NINETY_SEVEN]: NinetySevenGame

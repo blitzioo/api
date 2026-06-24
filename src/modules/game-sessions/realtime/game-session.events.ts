@@ -21,8 +21,6 @@ export const registerGameSessionEvents = async ({ socket, io }: IEventParams) =>
     const sessionId = gameSession.id;
     const gameRoomName = gameSessionRooms.getRoomName(sessionId);
 
-    socket.join(gameRoomName);
-
     const connectedPlayers = connectedPlayersBySession.get(sessionId) ?? new Set<string>();
     connectedPlayers.add(userId);
     connectedPlayersBySession.set(sessionId, connectedPlayers);
@@ -44,6 +42,7 @@ export const registerGameSessionEvents = async ({ socket, io }: IEventParams) =>
             username: userName
         }
     });
+    socket.join(gameRoomName);
 
     const allPlayersConnected =
         connectedPlayers.size === gameSession.playersSnapshot.length;

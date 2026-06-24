@@ -27,7 +27,9 @@ fastify.setErrorHandler((error: Error, _, reply) => {
 });
 
 await fastify.register(cors, {
-    origin: process.env.APP_ORIGIN || "*"
+    origin: process.env.APP_ORIGIN || "*",
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS']
 });
 
 await registerWebsocket(fastify);

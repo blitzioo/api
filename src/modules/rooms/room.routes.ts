@@ -29,6 +29,27 @@ export default (app: FastifyInstance) => {
         const room = await roomService.createRoom(hostId, username, gameId);
         return reply.code(201).send({ room });
     });
+
+    app.get("/:code", {
+        schema: {
+            params: {
+                type: "object",
+                required: ["code"],
+                additionalProperties: false,
+                properties: {
+                    code: {
+                        type: "string",
+                        minLength: 6,
+                        maxLength: 6
+                    }
+                }
+            }
+        }
+    }, async (request, reply) => {
+        const { code } = request.params as { code: string };
+        const room = await roomService.getRoom(code);
+        reply.code(200).send({room});
+    });
     
     app.patch("/:code/start", {
         schema: {
