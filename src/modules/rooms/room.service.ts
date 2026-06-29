@@ -14,7 +14,8 @@ export default class RoomService {
     public async createRoom(
         hostId: string,
         hostUsername: string,
-        gameId: GameEnum
+        gameId: GameEnum,
+        options: Record<string, unknown> = {}
     ): Promise<Room> {
         const maxAttempts = 5;
 
@@ -24,7 +25,8 @@ export default class RoomService {
                     code: generateRandomCode(),
                     hostId,
                     hostUsername,
-                    gameId
+                    gameId,
+                    options
                 });
 
                 return createdRoom;

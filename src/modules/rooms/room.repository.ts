@@ -8,6 +8,7 @@ interface IRoomParams {
     code: string;
     hostId: string;
     gameId: GameEnum;
+    options?: Record<string, unknown>;
 }
 
 export default class RoomRepository {
@@ -21,6 +22,7 @@ export default class RoomRepository {
             code: params.code,
             hostId: params.hostId,
             gameId: params.gameId,
+            options: params.options ?? {},
             status: RoomStatus.WAITING,
             players: [
                 {

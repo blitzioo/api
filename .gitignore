@@ -13,3 +13,4 @@ data/
 config/*.env
 !config/*.example.env
 !config/app.env
+scripts/test-client.mjs

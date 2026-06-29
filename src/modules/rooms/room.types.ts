@@ -20,4 +20,5 @@ export interface Room {
     status: RoomStatus;
     players: RoomPlayer[];
     createdAt: Date;
+    options: Record<string, unknown>;
 }
