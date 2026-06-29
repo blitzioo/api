@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { authHook } from "../auth/auth.hook.js";
-import { GameEnum, gameOptionsSchema } from "../games/game.enum.js";
+import { GameEnum } from "../games/game.enum.js";
 import RoomService from "./room.service.js";
 
 const roomService = new RoomService();
@@ -13,15 +13,15 @@ export default (app: FastifyInstance) => {
             body: {
                 type: "object",
                 required: ["gameId"],
-                oneOf: Object.entries(gameOptionsSchema).map(([gameId, schema]) => ({
-                    additionalProperties: false,
-                    properties: {
-                        gameId: {
-                            const: gameId
-                        },
-                        options: schema
-                    }
-                }))
+                // oneOf: Object.entries(gameOptionsSchema).map(([gameId, schema]) => ({
+                //     additionalProperties: false,
+                //     properties: {
+                //         gameId: {
+                //             const: gameId
+                //         },
+                //         options: schema
+                //     }
+                // }))
             }
         }
     }, async (request, reply) => {
