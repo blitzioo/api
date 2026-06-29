@@ -2,7 +2,6 @@ FROM node:24.16.0-alpine AS build
 
 WORKDIR /app
 
-COPY .npmrc .npmrc
 COPY package*.json ./
 
 RUN npm ci
