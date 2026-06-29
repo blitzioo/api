@@ -1,23 +1,24 @@
 import { IEventParams } from "../../../realtime/types.js";
 
-const getRoomName = (gameSessionId: string) =>
-    `game:${gameSessionId}`;
+const resolveTag = (code: string) => {
+    return `session:${code}`;
+}
 
 const broadcast = (io: IEventParams["io"], {
-    sessionId,
+    roomCode,
     eventName,
     data
 }: {
-    sessionId: string;
+    roomCode: string;
     eventName: string;
     data?: any;
 }) => {
     io
-        .to(getRoomName(sessionId))
+        .to(resolveTag(roomCode))
         .emit(eventName, data);
 }
 
 export default {
-    getRoomName,
+    resolveTag,
     broadcast
 }

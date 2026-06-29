@@ -1,91 +1,60 @@
-import { RoomPlayer } from "../rooms/room.types.js";
-import { toGameSessionEntity } from "./game-session.mapper.js";
-import GameSession from "./game-session.model.js";
-import {
-    CreateGameSessionParams,
-    GameSessionStatus,
-    GameSessionState,
-    GameSessionEntity
-} from "./game-session.types.js";
+import redis from "../../core/redis.js";
+import { RoomStatus } from "../rooms/room.types.js";
+import { GameSession } from "./game-session.types.js";
 
-export default class GameSessionRepository {
-    public async create(params: CreateGameSessionParams): Promise<GameSession> {
-        return GameSession.create({
-            roomCode: params.roomCode,
-            gameId: params.gameId,
-            hostId: params.hostId,
-            state: params.state ?? {},
-            playersSnapshot: params.playersSnapshot,
-            status: GameSessionStatus.RUNNING
-        });
+const ROOM_TTL_SECONDS = 60 * 60 * 24;
+
+type GameSessionUpdate = Partial<GameSession>;
+
+export default class RoomRepository {
+    private getRoomKey(code: string) {
+        return `room:${code}`;
     }
 
-    public async findById(id: string): Promise<GameSessionEntity | null> {
-        const session = await GameSession.findByPk(id);
+    public async findByCode(code: string): Promise<GameSession | null> {
+        const raw = await redis.get(this.getRoomKey(code));
+        if (!raw) return null;
 
-        if (!session) {
-            return null;
-        }
-
-        return toGameSessionEntity(session);
+        const data = JSON.parse(raw);
+        return {
+            ...data,
+            state: data.state ?? {},
+            startedAt: data.startedAt ?? undefined,
+            endedAt: data.endedAt ?? undefined,
+        } as GameSession;
     }
 
-    public async findRunningByRoomCode(roomCode: string): Promise<GameSessionEntity | null> {
-        const session = await GameSession.findOne({
-            where: {
-                roomCode,
-                status: GameSessionStatus.RUNNING
-            }
+    public async update(
+        code: string,
+        patch: GameSessionUpdate
+    ): Promise<GameSession | null> {
+        const room = await this.findByCode(code);
+        if (!room) return null;
+
+        const updated: GameSession = {
+            ...room,
+            ...patch
+        };
+
+        await redis.set(this.getRoomKey(code), JSON.stringify(updated), {
+            EX: ROOM_TTL_SECONDS
         });
 
-        return session ? toGameSessionEntity(session) : null;
+        return updated;
     }
 
-    public async findAllByRoomCode(roomCode: string): Promise<GameSession[]> {
-        return GameSession.findAll({
-            where: {
-                roomCode
-            },
-            order: [["createdAt", "DESC"]]
-        });
+    public async updateStatus(
+        code: string,
+        status: RoomStatus
+    ): Promise<GameSession | null> {
+        return this.update(code, { status } as Partial<GameSession>);
     }
 
     public async updateState(
-        id: string,
-        state: GameSessionState
-    ): Promise<void> {
-        await GameSession.update(
-            { state },
-            { where: { id } }
-        );
+        code: string,
+        state: GameSession["state"]
+    ): Promise<GameSession | null> {
+        return this.update(code, { state });
     }
 
-    public async end(id: string): Promise<void> {
-        await GameSession.update(
-            {
-                status: GameSessionStatus.ENDED,
-                endedAt: new Date()
-            },
-            {
-                where: { id }
-            }
-        );
-    }
-
-    public async updatePlayersSnapshot(
-        id: string,
-        playersSnapshot: RoomPlayer[]
-    ): Promise<GameSessionEntity> {
-        const session = await GameSession.findByPk(id);
-
-        if (!session) {
-            throw new Error("Game session not found");
-        }
-
-        session.playersSnapshot = playersSnapshot;
-
-        await session.save();
-
-        return toGameSessionEntity(session);
-    }
 }

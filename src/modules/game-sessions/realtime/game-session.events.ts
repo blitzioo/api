@@ -1,103 +1,56 @@
-import { Socket } from "socket.io";
 import { IEventParams, SocketData } from "../../../realtime/types.js";
-import BaseGame from "../../games/base-game.js";
 import GameSessionService from "../game-session.service.js";
-import gameSessionRooms from "./game-session.rooms.js";
-
-const connectedPlayersBySession = new Map<string, Set<string>>();
-const socketsBySession = new Map<string, Map<string, Socket>>();
-
-const initializedSessions = new Set<string>();
+import BaseGame from "../../games/base-game.js";
 
 const gameSessionService = new GameSessionService();
 
-export const registerGameSessionEvents = async ({ socket, io }: IEventParams) => {
+export const registerGameSessionEvents = async ({ socket }: IEventParams) => {
     const data = socket.data as SocketData;
+
     const userId = data.user.id!;
-    const userName = data.user.username;
-
-    const gameSession = data.gameSession;
-
-    const sessionId = gameSession.id;
-    const gameRoomName = gameSessionRooms.getRoomName(sessionId);
-
-    const connectedPlayers = connectedPlayersBySession.get(sessionId) ?? new Set<string>();
-    connectedPlayers.add(userId);
-    connectedPlayersBySession.set(sessionId, connectedPlayers);
-
-    let sessionSockets = socketsBySession.get(sessionId);
-
-    if (!sessionSockets) {
-        sessionSockets = new Map<string, Socket>();
-        socketsBySession.set(sessionId, sessionSockets);
+    const roomCode = data.roomCode;
+    const room = await gameSessionService.findByCode(roomCode);
+    if(!room) {
+        socket.emit("session:error", {
+            error: 'Cannot find room with code: ' + roomCode
+        });
+        return;
     }
-
-    sessionSockets.set(userId, socket);
-    
-    gameSessionRooms.broadcast(io, {
-        sessionId,
-        eventName: "game:player-joined",
-        data: {
-            id: userId,
-            username: userName
-        }
+    socket.emit("session:infos", {
+        gameId: room.gameId
     });
-    socket.join(gameRoomName);
 
-    const allPlayersConnected =
-        connectedPlayers.size === gameSession.playersSnapshot.length;
+    const gameInstance = await BaseGame.loadById(room.gameId, room.code);
+    if(gameInstance) {
+        await gameInstance.syncPlayer(userId);
+    }
+    
+    socket.removeAllListeners("game:action");
 
-    const alreadyInitialized = initializedSessions.has(sessionId);
-
-    if (allPlayersConnected && !alreadyInitialized) {
+    socket.on("game:action", async ({ action, payload }) => {
         try {
-            initializedSessions.add(sessionId);
+            if (!action) {
+                throw new Error("Missing action");
+            }
+            const gameInstance = await BaseGame.loadById(
+                room.gameId, 
+                room.code
+            );
+            if(!gameInstance) {
+                throw new Error("Missing game instance");
+            }
 
-            const gameInstance = BaseGame.loadById(gameSession.gameId, {
-                sessionId: gameSession.id,
-                players: gameSession.playersSnapshot,
-                state: gameSession.state,
-                io,
-                sockets: socketsBySession
-            });
-
-            await gameInstance.initialize();
-            socket.on("game:action", async ({action, payload}) => {
-                if(!action || !payload) return;
-                await gameInstance.handleAction(
-                    userId,
-                    action, 
-                    payload
-                )
-            });
-        } catch(e) {
+            await gameInstance.handleAction(
+                userId,
+                action,
+                payload ?? {}
+            );
+        } catch (e) {
             const error = e as Error;
-            socket.emit("game:error", {
+
+            socket.emit("session:error", {
                 error: error.message
             });
         }
-    }
-
-    socket.on("disconnect", async () => {
-        connectedPlayers.delete(userId);
-
-        if (connectedPlayers.size === 0) {
-            connectedPlayersBySession.delete(sessionId);
-            initializedSessions.delete(sessionId);
-            await gameSessionService.leaveSession(sessionId, userId);
-        }
-
-        const sessionSockets = socketsBySession.get(sessionId);
-        sessionSockets?.delete(userId);
-
-        if (sessionSockets?.size === 0) {
-            socketsBySession.delete(sessionId);
-        }
-
-        gameSessionRooms.broadcast(io, {
-            sessionId,
-            eventName: "game:player-left",
-            data: { playerId: userId }
-        });
     });
 };

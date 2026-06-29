@@ -1,28 +1,36 @@
 import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
 import { Card } from "../shared/cards/cards.type.js";
 import { createDeck56 } from "../shared/cards/decks.js";
-import { shuffleDeck } from "../shared/cards/index.js";
+import cards, { shuffleDeck } from "../shared/cards/index.js";
 
 export interface NinetySevenPlayerState {
     cards: Card[];
 }
 
+type NinetySevenGameResult = {
+    loser: {
+        id: string;
+        username: string;
+    };
+};
+
 type NinetySevenState = {
     currentPlayerIdx: number;
-    direction: 1|-1;
-
+    direction: 1 | -1;
     total: number;
-
     players: Record<string, NinetySevenPlayerState>;
-
     deck: Card[];
-
     discardPile: Card[];
+    isFinished: boolean;
+    gameResult: NinetySevenGameResult | null;
 }
 
-export default class NinetySevenGame extends BaseGame<NinetySevenState> {
+type NinetySevenJackChoice = -10 | 10;
 
+export default class NinetySevenGame extends BaseGame<NinetySevenState> {
     private readonly MAX_CARDS = 4;
+    private readonly MAX_TOTAL = 97;
+
     private static readonly LEFT_DIR = -1;
     private static readonly RIGHT_DIR = 1;
 
@@ -33,59 +41,78 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
             players: {},
             deck: shuffleDeck(createDeck56()),
             discardPile: [],
-            total: 0
+            total: 0,
+            isFinished: false,
+            gameResult: null
         });
     }
 
-    public async handleAction(playerId: string, action: string, payload: TGameActionPayload) {        
-        switch(action) {
-            case "play-card":
+    public async handleAction(
+        playerId: string,
+        action: string,
+        payload: TGameActionPayload
+    ) {
+        switch (action) {
+            case "play-card": {
                 const data = payload as {
                     cardIdx: number;
                     announcedTotal: number;
-                }
-                const state = this.getState();
-                if(data.cardIdx < 0 || data.cardIdx >= this.MAX_CARDS) {
+                    jackChoice?: NinetySevenJackChoice;
+                };
+
+                if (!Number.isInteger(data.cardIdx) || data.cardIdx < 0) {
                     throw new Error("Invalid cardIdx");
                 }
-                if(this.getPlayers().at(state.currentPlayerIdx)?.id !== playerId) {
-                    throw new Error("You are not the current player who has to play");
-                }
 
-                const result = await this.playCard(
-                    playerId,
-                    {
-                        cardIndex: data.cardIdx,
-                        announcedTotal: data.announcedTotal
-                    }
-                );
+                const result = await this.playCard(playerId, {
+                    cardIndex: data.cardIdx,
+                    announcedTotal: data.announcedTotal,
+                    jackChoice: data.jackChoice
+                });
+
                 this.sendTo(playerId, result.privateState);
                 this.broadcast(result.publicState);
                 break;
+            }
         }
     }
 
     public async initialize(): Promise<void> {
-        const state = {
-            ...this.getState(),
-            deck: [...this.getState().deck],
-            players: { ...this.getState().players }
-        };
+        const state = this.getState();
 
-        for (const {id} of this.getPlayers()) {
+        for (const { id } of this.getPlayers()) {
             state.players[id] ??= {
                 cards: []
             };
 
             while (state.players[id].cards.length < this.MAX_CARDS) {
                 const card = this.drawCard(id, state);
-                if (!card) break;
-            }
 
-            this.sendTo(id, state.players[id]);
+                if (!card) {
+                    break;
+                }
+            }
         }
 
         await this.updateState(state);
+
+        for (const { id } of this.getPlayers()) {
+            this.sendTo(id, {
+                cards: state.players[id]?.cards ?? []
+            });
+        }
+
+        this.broadcastPublicState(state);
+    }
+
+    public async syncPlayer(playerId: string) {
+        const state = this.getState();
+
+        this.sendTo(playerId, {
+            cards: state.players[playerId]?.cards ?? []
+        });
+
+        this.broadcastPublicState(state);
     }
 
     private async playCard(
@@ -93,21 +120,58 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
         payload: {
             cardIndex: number;
             announcedTotal: number;
+            jackChoice?: NinetySevenJackChoice;
         }
     ) {
         const state = this.getState();
+        const players = this.getPlayers();
 
-        const {drawnCard, discardedCard} = this.discardCardAndDraw(
+        if (state.isFinished) {
+            throw new Error("Game is already finished");
+        }
+
+        const playedPlayerIdx = state.currentPlayerIdx;
+        const playedPlayer = players[playedPlayerIdx];
+
+        if (!playedPlayer) {
+            throw new Error("Current player not found");
+        }
+
+        if (playedPlayer.id !== playerId) {
+            throw new Error("You are not the current player who has to play");
+        }
+
+        const announcedTotal = payload.announcedTotal;
+
+        const { drawnCard, discardedCard } = this.discardCardAndDraw(
             playerId,
             payload.cardIndex,
             state
         );
-        
-        // TODO: manage special cards
 
+        this.applyCardEffect(discardedCard, payload.jackChoice, state);
 
-        this.nextPlayer(state);
+        const realTotal = state.total;
+        const difference = Math.abs(realTotal - announcedTotal);
+        const penalty = difference;
+        const isCorrect = difference === 0;
+
+        if (this.isGameFinished(state)) {
+            state.isFinished = true;
+            state.gameResult = {
+                loser: {
+                    id: playedPlayer.id,
+                    username: playedPlayer.username
+                }
+            };
+            await this.endGame();
+        } else {
+            this.nextPlayer(state);
+        }
+
         await this.updateState(state);
+
+        const turnId = crypto.randomUUID();
 
         return {
             privateState: {
@@ -116,17 +180,86 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
             publicState: {
                 discardPile: state.discardPile,
                 currentPlayerIdx: state.currentPlayerIdx,
-                direction: state.direction
+                direction: state.direction,
+                total: state.total,
+                players: players.map(player => ({
+                    id: player.id,
+                    username: player.username
+                })),
+                isFinished: state.isFinished,
+                gameResult: state.gameResult,
+                lastTurnResult: {
+                    id: turnId,
+                    playedPlayer: {
+                        id: playedPlayer.id,
+                        username: playedPlayer.username
+                    },
+                    announcedTotal,
+                    realTotal,
+                    newTotal: state.total,
+                    difference,
+                    penalty,
+                    isCorrect,
+                    isGameFinished: state.isFinished,
+                    gameResult: state.gameResult
+                }
             }
         };
     }
-    
+
+    private applyCardEffect(
+        card: Card,
+        jackChoice: NinetySevenJackChoice | undefined,
+        state: NinetySevenState
+    ) {
+        if (!cards.isFigure(card)) {
+            state.total += Number(card.rank);
+            return;
+        }
+
+        if (card.rank === "J") {
+            if (jackChoice !== -10 && jackChoice !== 10) {
+                throw new Error("Jack choice is required");
+            }
+
+            state.total += jackChoice;
+
+            if (state.total < 0) {
+                state.total = 0;
+            }
+
+            return;
+        }
+
+        if (card.rank === "Q") {
+            this.changeDirection(state);
+            return;
+        }
+
+        if (card.rank === "K") {
+            state.total = 70;
+            return;
+        }
+
+        if (card.rank === "A") {
+            state.total++;
+        }
+
+        if(state.total >= this.MAX_CARDS) {
+            state.total = this.MAX_CARDS
+        }
+    }
+
     private nextPlayer(state: NinetySevenState) {
         const playerCount = this.getPlayers().length;
 
+        if (playerCount <= 0) {
+            return;
+        }
+
         state.currentPlayerIdx = (
             state.currentPlayerIdx + state.direction + playerCount
-        ) % playerCount;         
+        ) % playerCount;
     }
 
     private discardCardAndDraw(
@@ -146,18 +279,26 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
 
         const [discardedCard] = player.cards.splice(cardIndex, 1);
 
+        if (!discardedCard) {
+            throw new Error("Invalid discarded card");
+        }
+
         state.discardPile.push(discardedCard);
 
         return {
             discardedCard,
             drawnCard: this.drawCard(playerId, state)
-        }
+        };
     }
 
     private drawCard(
         playerId: string,
         state: NinetySevenState
     ): Card | null {
+        state.players[playerId] ??= {
+            cards: []
+        };
+
         let card = state.deck.pop();
 
         if (!card) {
@@ -175,10 +316,27 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
     }
 
     private changeDirection(state: NinetySevenState) {
-        this.updateState({
-            direction: state.direction  === NinetySevenGame.RIGHT_DIR 
-                    ? NinetySevenGame.LEFT_DIR 
-                    : NinetySevenGame.RIGHT_DIR
+        state.direction = state.direction === NinetySevenGame.RIGHT_DIR
+            ? NinetySevenGame.LEFT_DIR
+            : NinetySevenGame.RIGHT_DIR;
+    }
+
+    private isGameFinished(state: NinetySevenState) {
+        return state.total >= this.MAX_TOTAL;
+    }
+
+    private broadcastPublicState(state: NinetySevenState) {
+        this.broadcast({
+            discardPile: state.discardPile,
+            direction: state.direction,
+            currentPlayerIdx: state.currentPlayerIdx,
+            total: state.total,
+            players: this.getPlayers().map(player => ({
+                id: player.id,
+                username: player.username
+            })),
+            isFinished: state.isFinished,
+            gameResult: state.gameResult
         });
     }
 }

@@ -50,8 +50,8 @@ export default (app: FastifyInstance) => {
         const room = await roomService.getRoom(code);
         reply.code(200).send({room});
     });
-    
-    app.patch("/:code/start", {
+
+    app.patch("/:code/join", {
         schema: {
             params: {
                 type: "object",
@@ -67,18 +67,18 @@ export default (app: FastifyInstance) => {
             }
         }
     }, async (request, reply) => {
-        const { id: userId } = request.user!;
+        const { id, username } = request.user!;
         const { code } = request.params as { code: string };
 
-        const {room} = await roomService.startRoom(code, userId);
-
-        return reply.send({
-            code: room.code
+        const room = await roomService.joinRoom(code, {
+            id,
+            username
         });
+
+        return reply.send({ room });
     });
 
     app.patch("/:code/leave", {
-        preHandler: authHook,
         schema: {
             params: {
                 type: "object",

@@ -1,11 +1,9 @@
 import { Sequelize } from "sequelize";
 import User from "../modules/user/user.model.js";
-import GameSession from "../modules/game-sessions/game-session.model.js";
 import logger from "../core/logger.js";
 
 const models: any[] = [
-  User,
-  GameSession
+  User
 ];
 
 export const initializeModels = (sequelize: Sequelize) => {

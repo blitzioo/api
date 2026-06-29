@@ -1,34 +1,38 @@
-import { Server, Socket } from "socket.io";
+import { Server } from "socket.io";
 import GameSessionService from "../game-sessions/game-session.service.js";
-import { GameSessionPlayerSnapshot, GameSessionState } from "../game-sessions/game-session.types.js";
+import { GameSessionState } from "../game-sessions/game-session.types.js";
 import { gameClasses, GameEnum } from "./game.enum.js";
-import gameSessionRooms from "../game-sessions/realtime/game-session.rooms.js";
-
+import {RoomSockets} from "../../realtime/socket-registry.js";
+import { RoomPlayer } from "../rooms/room.types.js";
+import roomEventsUtils from "../rooms/realmtime/room-events.utils.js";
 export interface GameData<T = GameSessionState> {
-  sessionId: string;
-  players: GameSessionPlayerSnapshot[];
+  roomCode: string;
+  players: RoomPlayer[];
   state: T;
   io: Server;
-  sockets: Map<string, Map<string, Socket>>;
 }
 
 export type TGameActionPayload = Record<string, unknown>;
 
 export default abstract class BaseGame<TGameState extends GameSessionState> {
 
+  private static gameInstancesByCode = new Map<string, BaseGame<any>>();
+
   private readonly gameSessionService = new GameSessionService();
-  private readonly sessionId: string;
-  private readonly players: GameSessionPlayerSnapshot[];
+
+  private readonly roomCode: string;
+
+  private readonly players: RoomPlayer[];
   private readonly io: Server;
-  private readonly sockets: Map<string, Map<string, Socket>>;
+  private readonly roomSockets: RoomSockets;
 
   private state: TGameState;
 
-  public constructor({ sessionId, players, state, io, sockets }: GameData<TGameState>, initialState: TGameState) {
-    this.sessionId = sessionId;
+  public constructor({ roomCode, players, state, io }: GameData<TGameState>, initialState: TGameState) {
     this.players = players;
     this.io = io;
-    this.sockets = sockets;
+    this.roomSockets = RoomSockets.from(roomCode);
+    this.roomCode = roomCode;
 
     const isEmptyState = Object.keys(state).length < 1;
     this.state = isEmptyState
@@ -39,8 +43,8 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
     }
   }
 
-  protected getSessionId() {
-    return this.sessionId;
+  protected getCode() {
+    return this.roomCode;
   }
   protected getState() {
     return this.state;
@@ -49,44 +53,53 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
     return this.players;
   }
 
-  protected async updateState(newState: Partial<TGameState>) {
-    this.state = {
-      ...this.getState(),
-      ...newState
-    };
-    await this.gameSessionService.updateState(this.getSessionId(), this.state);
+  protected async updateState(newState: TGameState) {
+    this.state = newState;
+    await this.gameSessionService.updateState(this.getCode(), this.state);
   }
 
   protected async endGame() {
-    await this.gameSessionService.endSession(this.sessionId);
+    await this.gameSessionService.endSession(this.getCode());
   }
 
   protected sendTo(playerId: string, data?:any) {
-    this.sockets.get(this.sessionId)
-      ?.get(playerId)
-      ?.emit("game:private-state", data);
+    this.roomSockets.getSocket(playerId)
+      ?.emit("game:private-data", data);
   }
 
   protected broadcast(data?: any) {
-    gameSessionRooms.broadcast(this.io, {
-      sessionId: this.sessionId,
-      eventName: "game:public-state",
+    roomEventsUtils.broadcast(this.io, {
+      roomCode: this.roomCode,
+      eventName: "game:public-data",
       data
     });
   }
+
+  public abstract syncPlayer(playerId: string): Promise<void>|void;
 
   public abstract initialize(): Promise<void>|void;
 
   public abstract handleAction(playerId: string, action: string, data: TGameActionPayload): void|Promise<void>;
 
-  public static loadById(gameId: GameEnum, data: GameData) {
-    const GameClass = gameClasses[gameId];
+  public static async loadById(gameId: GameEnum, roomCode: string, data?: GameData) {
+      const loader = gameClasses[gameId];
 
-    if (!GameClass) {
-        throw new Error(`Game ${gameId} not found`);
-    }
+      if (!loader) {
+          throw new Error(`Game ${gameId} not found`);
+      }
 
-    return new GameClass(data);
+      if(!data && BaseGame.gameInstancesByCode.has(roomCode)) {
+        const instance = BaseGame.gameInstancesByCode.get(roomCode);
+        return instance!;
+      } else if(!data) {
+        return null;
+      }
+
+      const GameClass = await loader();
+      const instance = new GameClass(data);
+
+      BaseGame.gameInstancesByCode.set(roomCode, instance);
+      return instance;
   }
 
 }
