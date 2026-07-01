@@ -9,7 +9,7 @@ export interface GameData<T = GameSessionState> {
   roomCode: string;
   players: RoomPlayer[];
   state: T;
-  //options: GameSessionOptions;
+  options?: Record<string, unknown>;
   io: Server;
 }
 
@@ -26,14 +26,16 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
   private readonly players: RoomPlayer[];
   private readonly io: Server;
   private readonly roomSockets: RoomSockets;
+  private readonly options: Record<string, unknown>;
 
   private state: TGameState;
 
-  public constructor({ roomCode, players, state, io }: GameData<TGameState>, initialState: TGameState) {
+  public constructor({ roomCode, players, state, io, options }: GameData<TGameState>, initialState: TGameState) {
     this.players = players;
     this.io = io;
     this.roomSockets = RoomSockets.from(roomCode);
     this.roomCode = roomCode;
+    this.options = options ?? {};
 
     const isEmptyState = Object.keys(state).length < 1;
     this.state = isEmptyState
@@ -53,9 +55,9 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
   protected getPlayers() {
     return this.players;
   }
-  // protected getOptions() {
-  //   return this.options;
-  // }
+  protected getOptions() {
+    return this.options;
+  }
 
   protected getPlayer(playerId: string) {
     return this.players.find((player) => player.id === playerId);

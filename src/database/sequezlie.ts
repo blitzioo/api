@@ -14,8 +14,6 @@ export const sequelize = new Sequelize({
 
 export const initDatabase = async () => {
     initializeModels(sequelize);
-
-    await sequelize.authenticate();
     await sequelize.sync();
 
     logger.info('Connected to database');

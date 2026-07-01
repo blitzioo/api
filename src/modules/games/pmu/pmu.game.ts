@@ -1,137 +1,218 @@
-// import BaseGame, {GameData, TGameActionPayload} from "../base-game.js";
-// import { Card, CardSuit } from "../shared/cards/cards.type.js"
-// import { createDeck56 } from "../shared/cards/decks.js";
-// import { shuffleDeck } from "../shared/cards/index.js";
+import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
+import { Card, CardSuit } from "../shared/cards/cards.type.js";
+import { createDeck56 } from "../shared/cards/decks.js";
+import { shuffleDeck } from "../shared/cards/index.js";
 
-// type PmuState = {
-//     maxNumberReach: number
-//     stepNumber: number
-//     choices: Record<string, CardSuit>
-//     position: Record<CardSuit, number>
-//     sideCards: Card[]
-//     deck: Card[]
-//     started: boolean
-// }
+type PmuState = {
+    stepNumber: number;
+    maxNumberReach: number;
+    choices: Record<string, CardSuit>;
+    position: Record<CardSuit, number>;
+    sideCards: Card[];
+    deck: Card[];
+    started: boolean;
+    isFinished: boolean;
+    winner: CardSuit | null;
+    lastDrawnCard: Card | null;
+};
 
-// const DEFAULT_STEP = 6;  
+const DEFAULT_STEP = 6;
+const MIN_STEP = 3;
+const MAX_STEP = 12;
 
-// export default class PmuGame extends BaseGame<PmuState> {
+export default class PmuGame extends BaseGame<PmuState> {
 
-//     public constructor(data: GameData<PmuState>) {
-//         const stepNumber = Number(data.options?.stepNumber ?? DEFAULT_STEP);
+    public constructor(data: GameData<PmuState>) {
+        const stepNumber = PmuGame.resolveStepNumber(data.options?.stepNumber);
 
-//         let deck = shuffleDeck(createDeck56().filter(card => card.rank !== "A"))
-//         let sideCards: Card[] = [];
-//         for (let i = 0; i < stepNumber; i++) {
-//             if (deck.length !== 0) {
-//                 sideCards.push(deck.pop()!);
-//             }
-//         }
-//         super(data, {
-//             stepNumber,
-//             maxNumberReach: 0,
-//             choices: {},
-//             position: {
-//                 clubs: 0,
-//                 diamonds: 0,
-//                 hearts: 0,
-//                 spades: 0
-//             },
-//             deck,
-//             sideCards,
-//             started: false 
-//         });
+        const deck = shuffleDeck(
+            createDeck56().filter(card => card.rank !== "A")
+        );
 
-//         console.log(" INIT PMU GAME")
-//     }
+        const sideCards: Card[] = [];
+        for (let i = 0; i < stepNumber; i++) {
+            const card = deck.pop();
+            if (card) {
+                sideCards.push(card);
+            }
+        }
 
-//     public async handleAction(playerId: string, action: string, payload: TGameActionPayload) {
-//         console.log("ACTION FROM " + playerId, action, payload)
-//         switch (action) {
-//             case "play-round": {
-//                 if (!this.getPlayer(playerId)?.isHost) {
-//                     throw new Error("Only the host can play a round");
-//                 }
-//                 await this.playRound();
-//                 break;
-//             }
+        super(data, {
+            stepNumber,
+            maxNumberReach: 0,
+            choices: {},
+            position: {
+                [CardSuit.CLUBS]: 0,
+                [CardSuit.DIAMONDS]: 0,
+                [CardSuit.HEARTS]: 0,
+                [CardSuit.SPADES]: 0
+            },
+            deck,
+            sideCards,
+            started: false,
+            isFinished: false,
+            winner: null,
+            lastDrawnCard: null
+        });
+    }
 
-//             case "make-choice": {
-//                 const { cardSuit } = payload as { cardSuit?: CardSuit };
-//                 console.log(" ===================== ")
-//                 console.log(playerId, action, payload);
-//                 console.log(" =================== ")    
-//                 if (!cardSuit || !Object.values(CardSuit).includes(cardSuit)) {
-//                     throw new Error("Invalid or missing card suit");
-//                 }
+    private static resolveStepNumber(raw: unknown): number {
+        const value = Math.trunc(Number(raw));
 
-//                 const state = this.getState();
+        if (!Number.isFinite(value)) {
+            return DEFAULT_STEP;
+        }
 
-//                 if (state.started) throw Error('Game already start');
+        return Math.max(MIN_STEP, Math.min(MAX_STEP, value));
+    }
 
-//                 state.choices[playerId] = cardSuit;
-//                 await this.updateState(state);
-//                 break;
-//             }
-//         }
-//     }
+    public async initialize(): Promise<void> {
+        this.broadcast(this.getPublicState());
+    }
 
-//     public async initialize(): Promise<void> { }
+    public async syncPlayer(playerId: string): Promise<void> {
+        const state = this.getState();
 
-//     private playRound() {
-//         const state = this.getState();
-//         if (state.deck.length === 0) {
-//             this.broadcastCustomEvent("end", {
-//                 state: this.getPublicState(),
-//                 winner: this.getWinner()
-//             })
-//             this.endGame();
-//             return;
-//         }
+        this.sendTo(playerId, {
+            choice: state.choices[playerId] ?? null
+        });
 
-//         if (!state.started) state.started = true;
+        this.broadcast(this.getPublicState());
+    }
 
-//         const card = state.deck.pop()!;
-        
-//         const currentPosition = state.position[card.suit] + 1;
-//         state.position[card.suit] = currentPosition;
-        
-//         if (currentPosition >= state.stepNumber){
-//             this.broadcastCustomEvent("end", {
-//                 state: this.getPublicState(),
-//                 winner: this.getWinner()
-//             });
-//             this.endGame();
-//             return;
-//         }
+    public async handleAction(
+        playerId: string,
+        action: string,
+        payload: TGameActionPayload
+    ) {
+        switch (action) {
+            case "make-choice": {
+                await this.makeChoice(playerId, payload);
+                break;
+            }
 
-//         if (currentPosition > state.maxNumberReach) {
-//             const sideCard = state.sideCards[currentPosition];
-//             state.position[sideCard.suit] = state.position[sideCard.suit] - 1;
-           
-//             state.maxNumberReach = currentPosition;
-//         }
+            case "play-round": {
+                if (!this.getPlayer(playerId)?.isHost) {
+                    throw new Error("Only the host can play a round");
+                }
+                await this.playRound();
+                break;
+            }
 
-//         this.broadcast(this.getPublicState())
-//     }
+            default:
+                throw new Error(`Unknown action: ${action}`);
+        }
+    }
 
-//     private getPublicState() {
-//         const state = this.getState();
+    private async makeChoice(playerId: string, payload: TGameActionPayload) {
+        const { cardSuit } = payload as { cardSuit?: CardSuit };
 
-//         return {
-//             maxNumberReach: state.maxNumberReach,
-//             stepNumber: state.stepNumber,
-//             position: state.position,
-//             sideCards: state.sideCards[state.maxNumberReach],
-//         }
-//     }
+        if (!cardSuit || !Object.values(CardSuit).includes(cardSuit)) {
+            throw new Error("Invalid or missing card suit");
+        }
 
-//     private getWinner(): CardSuit {
-//         const { position } = this.getState();
+        const state = this.getState();
 
-//         const [winningSuit] = Object.entries(position)
-//             .reduce((best, current) => (current[1] > best[1] ? current : best));
+        if (state.started) {
+            throw new Error("Game already started, bets are closed");
+        }
 
-//         return winningSuit as CardSuit;
-//     }
-// }
+        state.choices[playerId] = cardSuit;
+        await this.updateState(state);
+
+        this.sendTo(playerId, { choice: cardSuit });
+        this.broadcast(this.getPublicState());
+    }
+
+    private async playRound() {
+        const state = this.getState();
+
+        if (state.isFinished) {
+            throw new Error("Game is already finished");
+        }
+
+        state.started = true;
+
+        const card = state.deck.pop();
+
+        if (!card) {
+            await this.finish(state);
+            return;
+        }
+
+        state.lastDrawnCard = card;
+
+        const nextPosition = state.position[card.suit] + 1;
+        state.position[card.suit] = nextPosition;
+
+        if (nextPosition >= state.stepNumber) {
+            await this.finish(state);
+            return;
+        }
+
+        if (nextPosition > state.maxNumberReach) {
+            state.maxNumberReach = nextPosition;
+
+            const sideCard = state.sideCards[nextPosition];
+            if (sideCard && state.position[sideCard.suit] > 0) {
+                state.position[sideCard.suit] -= 1;
+            }
+        }
+
+        await this.updateState(state);
+        this.broadcast(this.getPublicState());
+    }
+
+    private async finish(state: PmuState) {
+        state.isFinished = true;
+        state.winner = this.getWinner(state);
+
+        await this.updateState(state);
+        await this.endGame();
+
+        this.broadcast(this.getPublicState());
+    }
+
+    private getWinner(state: PmuState): CardSuit {
+        const [winningSuit] = Object.entries(state.position)
+            .reduce((best, current) => (current[1] > best[1] ? current : best));
+
+        return winningSuit as CardSuit;
+    }
+
+    private getPublicState() {
+        const state = this.getState();
+
+        return {
+            stepNumber: state.stepNumber,
+            maxNumberReach: state.maxNumberReach,
+            position: state.position,
+            handicaps: this.getHandicaps(state),
+            lastDrawnCard: state.lastDrawnCard,
+            started: state.started,
+            isFinished: state.isFinished,
+            winner: state.winner,
+            choices: state.choices,
+            players: this.getPlayers().map(player => ({
+                id: player.id,
+                username: player.username
+            })),
+            hostId: this.getPlayers().find(player => player.isHost)?.id ?? null
+        };
+    }
+
+    private getHandicaps(state: PmuState) {
+        const handicaps: { step: number; card: Card | null }[] = [];
+
+        for (let step = 1; step < state.stepNumber; step++) {
+            handicaps.push({
+                step,
+                card: step <= state.maxNumberReach
+                    ? state.sideCards[step] ?? null
+                    : null
+            });
+        }
+
+        return handicaps;
+    }
+}

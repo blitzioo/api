@@ -28,6 +28,7 @@ export const registerRoomEvents = async ({ socket, io }: IEventParams) => {
                 roomCode,
                 players: room!.players,
                 state: room!.state,
+                options: room!.options,
                 io
             }
         );
