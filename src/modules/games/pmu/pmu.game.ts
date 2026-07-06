@@ -3,23 +3,7 @@ import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
 import { Card, CardSuit } from "../shared/cards/cards.type.js";
 import { createDeck56 } from "../shared/cards/decks.js";
 import { shuffleDeck } from "../shared/cards/index.js";
-
-type PmuChoice = {
-    cardSuit: CardSuit;
-    bet: number;
-}
-type PmuState = {
-    stepNumber: number;
-    maxNumberReach: number;
-    choices: Record<string, PmuChoice>;
-    position: Record<CardSuit, number>;
-    sideCards: Card[];
-    deck: Card[];
-    started: boolean;
-    isFinished: boolean;
-    winner: CardSuit | null;
-    lastDrawnCard: Card | null;
-};
+import { PmuChoice, PmuState } from "./pmu.types.js";
 
 const DEFAULT_STEP = 6;
 const MIN_STEP = 3;
