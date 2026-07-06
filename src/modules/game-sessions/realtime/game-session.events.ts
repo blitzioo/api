@@ -7,6 +7,7 @@ const gameSessionService = new GameSessionService();
 export const registerGameSessionEvents = async ({ socket }: IEventParams) => {
     const data = socket.data as SocketData;
 
+    // TODO: manage when player is leaving
     const userId = data.user.id!;
     const roomCode = data.roomCode;
     const room = await gameSessionService.findByCode(roomCode);

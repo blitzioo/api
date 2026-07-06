@@ -1,3 +1,4 @@
+import { RoomPlayer } from "../../rooms/room.types.js";
 import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
 import { Card, CardSuit } from "../shared/cards/cards.type.js";
 import { createDeck56 } from "../shared/cards/decks.js";
@@ -219,11 +220,8 @@ export default class PmuGame extends BaseGame<PmuState> {
             winner: state.winner,
             choices: state.choices,
             results: this.getResults(state),
-            players: this.getPlayers().map(player => ({
-                id: player.id,
-                username: player.username
-            })),
-            hostId: this.getPlayers().find(player => player.isHost)?.id ?? null
+            players: this.getPlayers({ publicData: true }),
+            hostId: this.getPlayers().find((player) => (player as RoomPlayer).isHost)?.id ?? null
         };
     }
 

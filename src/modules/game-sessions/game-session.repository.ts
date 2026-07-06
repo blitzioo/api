@@ -1,18 +1,14 @@
 import redis from "../../core/redis.js";
+import RoomRepository from "../rooms/room.repository.js";
 import { RoomStatus } from "../rooms/room.types.js";
 import { GameSession } from "./game-session.types.js";
 
-const ROOM_TTL_SECONDS = 60 * 60 * 24;
-
 type GameSessionUpdate = Partial<GameSession>;
 
-export default class RoomRepository {
-    private getRoomKey(code: string) {
-        return `room:${code}`;
-    }
+export default class GameSessionRepository {
 
     public async findByCode(code: string): Promise<GameSession | null> {
-        const raw = await redis.get(this.getRoomKey(code));
+        const raw = await redis.get(RoomRepository.getRoomKey(code));
         if (!raw) return null;
 
         const data = JSON.parse(raw);
@@ -20,7 +16,7 @@ export default class RoomRepository {
             ...data,
             state: data.state ?? {},
             startedAt: data.startedAt ?? undefined,
-            endedAt: data.endedAt ?? undefined,
+            endedAt: data.endedAt ?? undefined
         } as GameSession;
     }
 
@@ -36,8 +32,8 @@ export default class RoomRepository {
             ...patch
         };
 
-        await redis.set(this.getRoomKey(code), JSON.stringify(updated), {
-            EX: ROOM_TTL_SECONDS
+        await redis.set(RoomRepository.getRoomKey(code), JSON.stringify(updated), {
+            EX: RoomRepository.ROOM_TTL_SECONDS
         });
 
         return updated;

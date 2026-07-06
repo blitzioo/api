@@ -1,8 +1,9 @@
 import BaseGame from "./base-game.js";
 
 export enum GameEnum {
-    NINETY_SEVEN = "ninety-seven",
-    PMU = "pmu"
+  NINETY_SEVEN = "ninety-seven",
+  BALLOON = "balloon",
+  PMU = "pmu"
 }
 
 export const gameClasses: Record<
@@ -12,5 +13,7 @@ export const gameClasses: Record<
   [GameEnum.NINETY_SEVEN]: () =>
     import("./ninety-seven/ninety-seven.game.js").then(m => m.default),
   [GameEnum.PMU]: () =>
-    import("./pmu/pmu.game.js").then(m => m.default)
+    import("./pmu/pmu.game.js").then(m => m.default),
+  [GameEnum.BALLOON]: () =>
+    import('./balloon/balloon.game.js').then(m => m.default)
 };

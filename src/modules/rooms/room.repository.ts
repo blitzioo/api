@@ -1,4 +1,4 @@
-import { Room, RoomStatus } from "./room.types.js";
+import { Room, RoomOptions, RoomStatus } from "./room.types.js";
 import redis from "../../core/redis.js";
 import { GameEnum } from "../games/game.enum.js";
 
@@ -6,12 +6,13 @@ interface IRoomParams {
     code: string;
     hostId: string;
     gameId: GameEnum;
-    options?: Record<string, unknown>;
+    options?: RoomOptions;
 }
 
 export default class RoomRepository {
 
-    private getRoomKey(code: string) {
+    public static ROOM_TTL_SECONDS = 60 * 60 * 24;
+    public static getRoomKey(code: string) {
         return `room:${code}`;
     }
 
@@ -34,10 +35,11 @@ export default class RoomRepository {
         };
 
         const created = await redis.set(
-            this.getRoomKey(room.code),
+            RoomRepository.getRoomKey(room.code),
             JSON.stringify(room),
             {
-                NX: true
+                NX: true,
+                EX: RoomRepository.ROOM_TTL_SECONDS
             }
         );
 
@@ -49,22 +51,44 @@ export default class RoomRepository {
     }
 
     public async findByCode(code: string): Promise<Room | null> {
-        const rawRoom = await redis.get(this.getRoomKey(code));
+        const rawRoom = await redis.get(RoomRepository.getRoomKey(code));
 
         if (!rawRoom) {
             return null;
         }
 
-        return JSON.parse(rawRoom) as Room;
+        const room = JSON.parse(rawRoom) as Room;
+
+        return {
+            ...room,
+            createdAt: new Date(room.createdAt)
+        };
     }
 
     public async update(room: Room): Promise<Room> {
         await redis.set(
-            this.getRoomKey(room.code),
-            JSON.stringify(room)
+            RoomRepository.getRoomKey(room.code),
+            JSON.stringify(room),
+            {
+                EX: RoomRepository.ROOM_TTL_SECONDS
+            }
         );
 
         return room;
+    }
+
+    public async updateOptions(
+        code: string,
+        options: RoomOptions
+    ): Promise<Room|null> {
+        const room = await this.findByCode(code);
+
+        if (!room) {
+            return null;
+        }
+
+        room.options = options;
+        return this.update(room);
     }
 
     public async updateStatus(
@@ -83,6 +107,6 @@ export default class RoomRepository {
     }
 
     public async delete(code: string): Promise<void> {
-        await redis.del(this.getRoomKey(code));
+        await redis.del(RoomRepository.getRoomKey(code));
     }
 }

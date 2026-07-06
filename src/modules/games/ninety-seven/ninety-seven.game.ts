@@ -2,30 +2,7 @@ import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
 import { Card } from "../shared/cards/cards.type.js";
 import { createDeck56 } from "../shared/cards/decks.js";
 import cards, { shuffleDeck } from "../shared/cards/index.js";
-
-export interface NinetySevenPlayerState {
-    cards: Card[];
-}
-
-type NinetySevenGameResult = {
-    loser: {
-        id: string;
-        username: string;
-    };
-};
-
-type NinetySevenState = {
-    currentPlayerIdx: number;
-    direction: 1 | -1;
-    total: number;
-    players: Record<string, NinetySevenPlayerState>;
-    deck: Card[];
-    discardPile: Card[];
-    isFinished: boolean;
-    gameResult: NinetySevenGameResult | null;
-}
-
-type NinetySevenJackChoice = -10 | 10;
+import { NinetySevenJackChoice, NinetySevenState } from "./ninety-seven.types.js";
 
 export default class NinetySevenGame extends BaseGame<NinetySevenState> {
     private readonly MAX_CARDS = 4;
@@ -331,10 +308,7 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
             direction: state.direction,
             currentPlayerIdx: state.currentPlayerIdx,
             total: state.total,
-            players: this.getPlayers().map(player => ({
-                id: player.id,
-                username: player.username
-            })),
+            players: this.getPlayers({ publicData: true }),
             isFinished: state.isFinished,
             gameResult: state.gameResult
         });

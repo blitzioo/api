@@ -5,14 +5,16 @@ export enum RoomStatus {
     PLAYING = "playing",
     CLOSED = "closed"
 }
+export type RoomOptions = Record<string, unknown>;
 
-export interface RoomPlayer {
-    id: string;
-    username: string;
+export interface RoomPlayer extends PublicRoomPlayer {
     isHost: boolean;
     isReady: boolean;
 }
-
+export interface PublicRoomPlayer {
+    id: string;
+    username: string;
+}
 export interface Room {
     code: string;
     hostId: string;
@@ -20,5 +22,5 @@ export interface Room {
     status: RoomStatus;
     players: RoomPlayer[];
     createdAt: Date;
-    options: Record<string, unknown>;
+    options: RoomOptions;
 }

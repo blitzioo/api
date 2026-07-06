@@ -3,13 +3,13 @@ import GameSessionService from "../game-sessions/game-session.service.js";
 import { GameSessionState } from "../game-sessions/game-session.types.js";
 import { gameClasses, GameEnum } from "./game.enum.js";
 import {RoomSockets} from "../../realtime/socket-registry.js";
-import { RoomPlayer } from "../rooms/room.types.js";
+import { PublicRoomPlayer, RoomOptions, RoomPlayer } from "../rooms/room.types.js";
 import roomEventsUtils from "../rooms/realmtime/room-events.utils.js";
 export interface GameData<T = GameSessionState> {
   roomCode: string;
   players: RoomPlayer[];
   state: T;
-  options?: Record<string, unknown>;
+  options: RoomOptions;
   io: Server;
 }
 
@@ -26,9 +26,9 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
   private readonly players: RoomPlayer[];
   private readonly io: Server;
   private readonly roomSockets: RoomSockets;
-  private readonly options: Record<string, unknown>;
 
   private state: TGameState;
+  private options: RoomOptions;
 
   public constructor({ roomCode, players, state, io, options }: GameData<TGameState>, initialState: TGameState) {
     this.players = players;
@@ -44,6 +44,7 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
     if(isEmptyState) {
       this.updateState(this.state);
     }
+    this.options = options;
   }
 
   protected getCode() {
@@ -52,13 +53,19 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
   protected getState() {
     return this.state;
   }
-  protected getPlayers() {
-    return this.players;
+  protected getPlayers({
+    publicData
+  }: {publicData: boolean} = {
+    publicData: false
+  }): (RoomPlayer|PublicRoomPlayer)[] {
+    const players = this.players;
+    return publicData 
+      ? players.map(p => ({id: p.id, username: p.username})) 
+      : players;
   }
   protected getOptions() {
     return this.options;
   }
-
   protected getPlayer(playerId: string) {
     return this.players.find((player) => player.id === playerId);
   }

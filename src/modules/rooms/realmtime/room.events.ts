@@ -11,10 +11,10 @@ export const registerRoomEvents = async ({ socket, io }: IEventParams) => {
     socket.on("room:start", async () => {
         const room = await gameSession.findByCode(roomCode);
         if(!room) {
-            socket.emit("room:error", "Room not found");
+            socket.emit("room:error", {error: "Room not found"});
         }
         if(room!.hostId !== data.user.id) {
-            socket.emit("room:error", "You are not the host");
+            socket.emit("room:error", {error: "You are not the host"});
         }
         roomEventsUtils.broadcast(io, {
             roomCode,
