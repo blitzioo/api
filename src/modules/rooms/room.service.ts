@@ -1,38 +1,74 @@
 import RoomRepository from "./room.repository.js";
 import { Room, RoomStatus } from "./room.types.js";
-import { GameEnum } from "../games/game.enum.js";
+import { GameEnum } from "../games/core/games/game.enum.js";
 import { generateRandomCode } from "../../utils/global.utils.js";
 import HttpError from "../../core/errors/http-error.js";
+import GamesRepository from "../games/core/games.repository.js";
+import { Game } from "../games/core/games/games.model.js";
+
+export type RoomWithGame = Room & {
+    game: Game;
+};
 
 export default class RoomService {
+    private readonly gameRepository = new GamesRepository();
     private readonly roomRepository = new RoomRepository();
 
-    public async getRoom(code: string) {
-        return this.roomRepository.findByCode(code);
+    private enrichRoom(room: Room, providedGameData?: Game): RoomWithGame {
+        const game = providedGameData ?? this.gameRepository.findById(room.gameId);
+
+        if (!game) {
+            throw new HttpError("Game not found", 500);
+        }
+
+        return {
+            ...room,
+            game
+        };
+    }
+
+    public async getRoom(code: string): Promise<RoomWithGame | null> {
+        const room = await this.roomRepository.findByCode(code);
+
+        if (!room) {
+            return null;
+        }
+
+        return this.enrichRoom(room);
     }
 
     public async createRoom(
         hostId: string,
         hostUsername: string,
-        gameId: GameEnum,
-        options: Record<string, unknown> = {}
-    ): Promise<Room> {
+        gameId: GameEnum
+    ): Promise<RoomWithGame> {
         const maxAttempts = 5;
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
             try {
-                const createdRoom =  await this.roomRepository.create({
+                const game = this.gameRepository.findById(gameId);
+                if(!game) {
+                    throw new Error("No game found for id " + gameId);
+                }
+
+                const createdRoom = await this.roomRepository.create({
                     code: generateRandomCode(),
                     hostId,
                     hostUsername,
-                    gameId,
-                    options
+                    gameId
                 });
 
-                return createdRoom;
+                return this.enrichRoom(createdRoom, game);
             } catch (error) {
-                if (!(error instanceof Error)) throw error;
-                if (error.message !== "Room code already exists") throw error;
+                if (!(error instanceof Error)) {
+                    throw error;
+                }
+
+                if (error.message === "Room code already exists") {
+                    continue;
+                }
+
+                throw error;
             }
         }
 
@@ -90,8 +126,7 @@ export default class RoomService {
         room.players = room.players.filter((p) => p.id !== playerId);
 
         if (room.players.length === 0) {
-            //await this.roomRepository.delete(code);
-            return room;
+            return this.enrichRoom(room);
         }
 
         if (room.hostId === playerId) {

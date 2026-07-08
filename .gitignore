@@ -8,7 +8,7 @@ old/
 dist/
 logs/
 keys/*
-data/
+/data/*
 
 config/*.env
 !config/*.example.env

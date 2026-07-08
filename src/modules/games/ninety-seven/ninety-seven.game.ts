@@ -1,4 +1,4 @@
-import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
+import BaseGame, { GameData, TGameAction } from "../core/games/base-game.js";
 import { Card } from "../shared/cards/cards.type.js";
 import { createDeck56 } from "../shared/cards/decks.js";
 import cards, { shuffleDeck } from "../shared/cards/index.js";
@@ -24,11 +24,11 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
         });
     }
 
-    public async handleAction(
-        playerId: string,
-        action: string,
-        payload: TGameActionPayload
-    ) {
+    public async handleAction({
+        playerId,
+        action,
+        data: payload
+    }: TGameAction) {
         switch (action) {
             case "play-card": {
                 const data = payload as {

@@ -1,21 +1,27 @@
 import { Server } from "socket.io";
-import GameSessionService from "../game-sessions/game-session.service.js";
-import { GameSessionState } from "../game-sessions/game-session.types.js";
+import GameSessionService from "../../../game-sessions/game-session.service.js";
+import { GameSessionState } from "../../../game-sessions/game-session.types.js";
 import { gameClasses, GameEnum } from "./game.enum.js";
-import {RoomSockets} from "../../realtime/socket-registry.js";
-import { PublicRoomPlayer, RoomOptions, RoomPlayer } from "../rooms/room.types.js";
-import roomEventsUtils from "../rooms/realmtime/room-events.utils.js";
-export interface GameData<T = GameSessionState> {
+import {RoomSockets} from "../../../../realtime/socket-registry.js";
+import { PublicRoomPlayer, RoomOptions, RoomPlayer } from "../../../rooms/room.types.js";
+import roomEventsUtils from "../../../rooms/realmtime/room-events.utils.js";
+
+export interface GameData<T = GameSessionState, V = RoomOptions> {
   roomCode: string;
   players: RoomPlayer[];
   state: T;
-  options: RoomOptions;
+  options: V;
   io: Server;
 }
 
 export type TGameActionPayload = Record<string, unknown>;
+export type TGameAction = {
+  playerId: string;
+  action: string;
+  data: TGameActionPayload;
+}
 
-export default abstract class BaseGame<TGameState extends GameSessionState> {
+export default abstract class BaseGame<TGameState extends GameSessionState, TGameOptions extends RoomOptions = {}> {
 
   private static gameInstancesByCode = new Map<string, BaseGame<any>>();
 
@@ -28,9 +34,9 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
   private readonly roomSockets: RoomSockets;
 
   private state: TGameState;
-  private options: RoomOptions;
+  private options: TGameOptions;
 
-  public constructor({ roomCode, players, state, io, options }: GameData<TGameState>, initialState: TGameState) {
+  public constructor({ roomCode, players, state, io, options }: GameData<TGameState, TGameOptions>, initialState: TGameState) {
     this.players = players;
     this.io = io;
     this.roomSockets = RoomSockets.from(roomCode);
@@ -63,7 +69,7 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
       ? players.map(p => ({id: p.id, username: p.username})) 
       : players;
   }
-  protected getOptions() {
+  protected getOptions(): TGameOptions {
     return this.options;
   }
   protected getPlayer(playerId: string) {
@@ -96,7 +102,7 @@ export default abstract class BaseGame<TGameState extends GameSessionState> {
 
   public abstract initialize(): Promise<void>|void;
 
-  public abstract handleAction(playerId: string, action: string, data: TGameActionPayload): void|Promise<void>;
+  public abstract handleAction(payload: TGameAction): void|Promise<void>;
 
   public static async loadById(gameId: GameEnum, roomCode: string, data?: GameData) {
       const loader = gameClasses[gameId];

@@ -1,0 +1,46 @@
+{
+    "ninety-seven": [
+        {
+            "title": "Le but du jeu",
+            "description": "Ne soyez pas le premier à atteindre 97 (ou plus) sinon vous avez perdu !"
+        },
+        {
+            "image": "1.png",
+            "title": "À votre tour",
+            "description": "Choisissez une carte puis annoncer le total. Attention à ne pas vous tromper sinon vous prenez la différence en pénalité !"
+        },
+        {
+            "title": "La dame",
+            "description": "La dame permet de changer de sens. Il faut annoncer le total précedent"
+        },
+        {
+            "title": "Le roi",
+            "description": "Le roi fait instantanement revenir à 70 !"
+        },
+        {
+            "image": "2.png",
+            "title": "Le valet",
+            "description": "Lorsque vous posez le valet vous devez choisir entre rajouter 10 au total ou retirer 10."
+        }
+    ],
+    "balloon": [
+        {
+            "title": "Le but du jeu",
+            "description": "Ne pas faire exploser le ballon !"
+        },
+        {
+            "title": "Passer le ballon",
+            "description": "Vous pouvez passer le ballon au suivant, attention vous prenez le nombre de tour en penalité."
+        },
+        {
+            "title": "Faire gonfler le ballon",
+            "description": "Vous pouvez faire gonfler le ballon, attention plus le ballon gonfle plus il risque d'exploser !"
+        }
+    ],
+    "pmu": [
+        {
+            "title": "Le but du jeu",
+            "description": "ethan écrit moi ça encule"
+        }
+    ]
+}

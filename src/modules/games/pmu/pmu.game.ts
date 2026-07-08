@@ -1,13 +1,9 @@
 import { RoomPlayer } from "../../rooms/room.types.js";
-import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
+import BaseGame, { GameData, TGameAction, TGameActionPayload } from "../core/games/base-game.js";
 import { Card, CardSuit } from "../shared/cards/cards.type.js";
 import { createDeck56 } from "../shared/cards/decks.js";
 import { shuffleDeck } from "../shared/cards/index.js";
-import { PmuChoice, PmuState } from "./pmu.types.js";
-
-const DEFAULT_STEP = 6;
-const MIN_STEP = 3;
-const MAX_STEP = 12;
+import { PmuChoice, PmuOptions, PmuState } from "./pmu.types.js";
 
 const DEFAULT_BET = 1;
 const MIN_BET = 1;
@@ -15,11 +11,10 @@ const MAX_BET = 10;
 const LOSER_MULTIPLIER = 1;
 const WINNER_MULTIPLIER = 2;
 
-export default class PmuGame extends BaseGame<PmuState> {
+export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
 
-    public constructor(data: GameData<PmuState>) {
-        const stepNumber = PmuGame.resolveStepNumber(data.options?.stepNumber);
-
+    public constructor(data: GameData<PmuState, PmuOptions>) {
+        const stepNumber = data.options.step;
         const deck = shuffleDeck(
             createDeck56().filter(card => card.rank !== "A")
         );
@@ -51,16 +46,6 @@ export default class PmuGame extends BaseGame<PmuState> {
         });
     }
 
-    private static resolveStepNumber(raw: unknown): number {
-        const value = Math.trunc(Number(raw));
-
-        if (!Number.isFinite(value)) {
-            return DEFAULT_STEP;
-        }
-
-        return Math.max(MIN_STEP, Math.min(MAX_STEP, value));
-    }
-
     private static resolveBet(raw: unknown): number {
         const value = Math.trunc(Number(raw));
 
@@ -85,11 +70,11 @@ export default class PmuGame extends BaseGame<PmuState> {
         this.broadcast(this.getPublicState());
     }
 
-    public async handleAction(
-        playerId: string,
-        action: string,
-        payload: TGameActionPayload
-    ) {
+    public async handleAction({
+        playerId,
+        action,
+        data: payload
+    }: TGameAction) {
         switch (action) {
             case "make-choice": {
                 await this.makeChoice(playerId, payload);

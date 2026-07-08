@@ -1,6 +1,6 @@
 import { IEventParams, SocketData } from "../../../realtime/types.js";
 import GameSessionService from "../game-session.service.js";
-import BaseGame from "../../games/base-game.js";
+import BaseGame from "../../games/core/games/base-game.js";
 
 const gameSessionService = new GameSessionService();
 
@@ -41,11 +41,11 @@ export const registerGameSessionEvents = async ({ socket }: IEventParams) => {
                 throw new Error("Missing game instance");
             }
 
-            await gameInstance.handleAction(
-                userId,
-                action,
-                payload ?? {}
-            );
+            await gameInstance.handleAction({
+                playerId: userId,
+                action: action,
+                data: payload ?? {}
+            });
         } catch (e) {
             const error = e as Error;
 

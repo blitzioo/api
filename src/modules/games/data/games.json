@@ -1,0 +1,26 @@
+[
+  {
+    "id": "ninety-seven",
+    "title": "Le 97",
+    "description": "Monte le total sans dépasser 97. Un mauvais calcul et tu prends cher.",
+    "icon": "i-mdi-cards-playing",
+    "backgroundColor": "#EAF4FF",
+    "color": "#1475E1"
+  },
+  {
+    "id": "balloon",
+    "title": "Ballon2Zipette",
+    "description": "Gonfle, passe, ou prends le risque. Quand le ballon explose, ça pique.",
+    "icon": "i-mdi-balloon",
+    "backgroundColor": "#FFF0F0",
+    "color": "#ED4163"
+  },
+  {
+    "id": "pmu",
+    "title": "PMU",
+    "description": "Mise sur ton cheval et regarde la course. Le dernier trinque.",
+    "icon": "i-mdi-horse",
+    "backgroundColor": "#FFF9E6",
+    "color": "#D99000"
+  }
+]

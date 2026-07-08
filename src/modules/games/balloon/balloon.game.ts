@@ -1,4 +1,4 @@
-import BaseGame, { GameData, TGameActionPayload } from "../base-game.js";
+import BaseGame, { GameData, TGameAction } from "../core/games/base-game.js";
 import { BalloonState } from "./balloon.types.js";
 
 export default class BalloonGame extends BaseGame<BalloonState> {
@@ -6,6 +6,7 @@ export default class BalloonGame extends BaseGame<BalloonState> {
         super(data, {
             currentPlayerIdx: 0,
             pressure: 0,
+            passCount: 0,
             exploded: false,
             explosion: null,
             give: null,
@@ -21,14 +22,19 @@ export default class BalloonGame extends BaseGame<BalloonState> {
 
         const sigmoid = 1 / (1 + Math.exp(-(x - midpoint) * steepness));
 
-        const min = 0;
-        const max = 0.50;
+        const min = 0.02;
+        const max = 0.55;
 
         return Math.min(max, Math.max(min, sigmoid));
     }
 
-    public handleAction(playerId: string, action: string, data: TGameActionPayload): void | Promise<void> {
+    public handleAction({ playerId, action }: TGameAction): void | Promise<void> {
         const state = this.getState();
+        const currentPlayer = this.getPlayers()[state.currentPlayerIdx];
+
+        if (!currentPlayer || currentPlayer.id !== playerId) {
+            return;
+        }
 
         switch (action) {
             case "pump":
@@ -50,17 +56,24 @@ export default class BalloonGame extends BaseGame<BalloonState> {
     }
 
     private pump(state: BalloonState) {
+        const player = this.getPlayers()[state.currentPlayerIdx];
+
+        if (!player) {
+            return;
+        }
+
         state.pressure++;
 
-        const chance = BalloonGame.explosionChance(state.pressure);
+        const effectivePressure = state.pressure + state.passCount * 0.65;
+        const chance = BalloonGame.explosionChance(effectivePressure);
 
         state.give = null;
         state.exploded = Math.random() < chance;
 
-        const player = this.getPlayers()[state.currentPlayerIdx];
-
         if (state.exploded) {
-            const penalty = Math.max(1, state.currentRound);
+            const pressureBonus = Math.floor(state.pressure / Math.max(1, this.getPlayers().length));
+            const passBonus = Math.floor(state.passCount / 2);
+            const penalty = Math.max(1, state.currentRound + pressureBonus + passBonus);
 
             state.explosion = {
                 playerId: player.id,
@@ -70,6 +83,7 @@ export default class BalloonGame extends BaseGame<BalloonState> {
 
             state.give = null;
             state.pressure = 0;
+            state.passCount = 0;
             state.currentRound = 1;
 
             this.nextPlayer(state, false);
@@ -79,6 +93,7 @@ export default class BalloonGame extends BaseGame<BalloonState> {
         }
 
         state.explosion = null;
+        state.passCount = 0;
 
         this.nextPlayer(state, true);
         this.broadcastPublicData(state);
@@ -88,7 +103,11 @@ export default class BalloonGame extends BaseGame<BalloonState> {
     private pass(state: BalloonState) {
         const player = this.getPlayers()[state.currentPlayerIdx];
 
-        const penalty = Math.max(state.currentRound);
+        if (!player) {
+            return;
+        }
+
+        const penalty = Math.max(1, state.currentRound);
 
         state.give = {
             playerId: player.id,
@@ -96,6 +115,7 @@ export default class BalloonGame extends BaseGame<BalloonState> {
             penalty
         };
 
+        state.passCount++;
         state.explosion = null;
         state.exploded = false;
 
@@ -104,17 +124,19 @@ export default class BalloonGame extends BaseGame<BalloonState> {
         this.updateState(state);
     }
 
-    private nextPlayer(state: BalloonState, incrementTour: boolean) {
+    private nextPlayer(state: BalloonState, incrementRound: boolean) {
         const players = this.getPlayers();
 
-        if (!players.length) return;
+        if (!players.length) {
+            return;
+        }
 
         const previousPlayerIdx = state.currentPlayerIdx;
 
         state.currentPlayerIdx = (state.currentPlayerIdx + 1) % players.length;
 
         if (
-            incrementTour &&
+            incrementRound &&
             previousPlayerIdx === players.length - 1 &&
             state.currentPlayerIdx === 0
         ) {
@@ -126,6 +148,7 @@ export default class BalloonGame extends BaseGame<BalloonState> {
         this.broadcast({
             currentPlayerIdx: state.currentPlayerIdx,
             pressure: state.pressure,
+            passCount: state.passCount,
             exploded: state.exploded,
             explosion: state.explosion,
             give: state.give,

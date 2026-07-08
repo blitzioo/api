@@ -1,12 +1,12 @@
 import { Room, RoomOptions, RoomStatus } from "./room.types.js";
 import redis from "../../core/redis.js";
-import { GameEnum } from "../games/game.enum.js";
+import { GameEnum } from "../games/core/games/game.enum.js";
 
 interface IRoomParams {
     code: string;
     hostId: string;
+    hostUsername: string;
     gameId: GameEnum;
-    options?: RoomOptions;
 }
 
 export default class RoomRepository {
@@ -16,12 +16,12 @@ export default class RoomRepository {
         return `room:${code}`;
     }
 
-    public async create(params: IRoomParams & { hostUsername: string }): Promise<Room> {
+    public async create(params: IRoomParams): Promise<Room> {
         const room: Room = {
             code: params.code,
             hostId: params.hostId,
             gameId: params.gameId,
-            options: params.options ?? {},
+            options: {},
             status: RoomStatus.WAITING,
             players: [
                 {

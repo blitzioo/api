@@ -1,9 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { authHook } from "../auth/auth.hook.js";
-import { GameEnum } from "../games/game.enum.js";
-import RoomService from "./room.service.js";
-
-const roomService = new RoomService();
+import { createRoom, getRoomByCode, joinRoom, leaveRoom } from "./room.controller.js"
 
 export default (app: FastifyInstance) => {
     app.addHook("preHandler", authHook);
@@ -13,31 +10,9 @@ export default (app: FastifyInstance) => {
             body: {
                 type: "object",
                 required: ["gameId"],
-                // oneOf: Object.entries(gameOptionsSchema).map(([gameId, schema]) => ({
-                //     additionalProperties: false,
-                //     properties: {
-                //         gameId: {
-                //             const: gameId
-                //         },
-                //         options: schema
-                //     }
-                // }))
             }
         }
-    }, async (request, reply) => {
-        try {
-            const { gameId, options } = request.body as {
-                gameId: GameEnum;
-                options?: Record<string, unknown>;
-            };
-            const { id: hostId, username } = request.user!;
-
-            const room = await roomService.createRoom(hostId, username, gameId, options);
-            return reply.code(201).send({ room });
-        } catch(e) {
-            reply.send({error: e})
-        }
-    });
+    }, createRoom);
 
     app.get("/:code", {
         schema: {
@@ -54,15 +29,7 @@ export default (app: FastifyInstance) => {
                 }
             }
         }
-    }, async (request, reply) => {
-        try {
-            const { code } = request.params as { code: string };
-            const room = await roomService.getRoom(code);
-            reply.code(200).send({room});
-        } catch(e) {
-            reply.send({error: e})
-        }
-    });
+    }, getRoomByCode);
 
     app.patch("/:code/join", {
         schema: {
@@ -79,21 +46,7 @@ export default (app: FastifyInstance) => {
                 }
             }
         }
-    }, async (request, reply) => {
-        try {
-            const { id, username } = request.user!;
-            const { code } = request.params as { code: string };
-
-            const room = await roomService.joinRoom(code, {
-                id,
-                username
-            });
-
-            return reply.send({ room });
-        } catch(e) {
-            return reply.send({error: e});
-        }
-    });
+    }, joinRoom);
 
     app.patch("/:code/leave", {
         schema: {
@@ -110,16 +63,5 @@ export default (app: FastifyInstance) => {
                 }
             }
         }
-    }, async (request, reply) => {
-        try {
-            const { id: playerId } = request.user!;
-            const { code } = request.params as { code: string };
-
-            const room = await roomService.leaveRoom(code, playerId);
-
-            return reply.send({ room });
-        } catch(e) {
-            return reply.send({error: e})
-        }
-    });
+    }, leaveRoom);
 }

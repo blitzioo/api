@@ -16,3 +16,8 @@ export type PmuState = {
     winner: CardSuit | null;
     lastDrawnCard: Card | null;
 };
+
+export type PmuOptions = {
+    step: number;
+    bet: number;
+}

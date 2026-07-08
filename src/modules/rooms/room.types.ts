@@ -1,4 +1,4 @@
-import { GameEnum } from "../games/game.enum.js";
+import { GameEnum } from "../games/core/games/game.enum.js";
 
 export enum RoomStatus {
     WAITING = "waiting",
