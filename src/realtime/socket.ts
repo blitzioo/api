@@ -47,7 +47,7 @@ export const registerWebsocket = async (fastify: FastifyInstance) => {
     // un peu gettho
     roomEventsUtils.broadcast(io, {
       roomCode,
-      eventName: "room:player-join",
+      eventName: "session:player-join",
       data: { 
         players: room?.players ?? [],
         username: user.username
@@ -76,9 +76,10 @@ export const registerWebsocket = async (fastify: FastifyInstance) => {
         const currentRoom = await roomService.getRoom(roomCode);
         if(currentRoom?.status !== RoomStatus.PLAYING) {
           const room = await roomService.leaveRoom(roomCode, userId);
+          console.log('test')
           roomEventsUtils.broadcast(io, {
             roomCode,
-            eventName: "room:player-left",
+            eventName: "session:player-left",
             data: { 
               players: room.players,
               username: user.username

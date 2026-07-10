@@ -2,6 +2,12 @@ import BaseGame, { GameData, TGameAction } from "../core/games/base-game.js";
 import { BalloonState } from "./balloon.types.js";
 
 export default class BalloonGame extends BaseGame<BalloonState> {
+
+    private readonly DANGER_STARTING_POINT = 13;
+    private readonly DANGER_GROWTH = 0.45;
+    private readonly MIN_CHANCE = 0;
+    private readonly MAX_CHANCE = 0.45;
+
     public constructor(data: GameData<BalloonState>) {
         super(data, {
             currentPlayerIdx: 0,
@@ -14,18 +20,12 @@ export default class BalloonGame extends BaseGame<BalloonState> {
         });
     }
 
-    private static explosionChance(pressure: number) {
+    private explosionChance(pressure: number) {
         const x = pressure;
 
-        const midpoint = 5.8;
-        const steepness = 0.9;
+        const sigmoid = 1 / (1 + Math.exp(-(x - this.DANGER_STARTING_POINT) * this.DANGER_GROWTH));
 
-        const sigmoid = 1 / (1 + Math.exp(-(x - midpoint) * steepness));
-
-        const min = 0.02;
-        const max = 0.55;
-
-        return Math.min(max, Math.max(min, sigmoid));
+        return Math.min(this.MAX_CHANCE, Math.max(this.MIN_CHANCE, sigmoid));
     }
 
     public handleAction({ playerId, action }: TGameAction): void | Promise<void> {
@@ -65,7 +65,7 @@ export default class BalloonGame extends BaseGame<BalloonState> {
         state.pressure++;
 
         const effectivePressure = state.pressure + state.passCount * 0.65;
-        const chance = BalloonGame.explosionChance(effectivePressure);
+        const chance = this.explosionChance(effectivePressure);
 
         state.give = null;
         state.exploded = Math.random() < chance;

@@ -4,17 +4,21 @@ import { Card, CardSuit } from "../shared/cards/cards.type.js";
 import { createDeck56 } from "../shared/cards/decks.js";
 import { shuffleDeck } from "../shared/cards/index.js";
 import { PmuChoice, PmuOptions, PmuState } from "./pmu.types.js";
-
-const DEFAULT_BET = 1;
-const MIN_BET = 1;
-const MAX_BET = 10;
-const LOSER_MULTIPLIER = 1;
-const WINNER_MULTIPLIER = 2;
+;
 
 export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
+    
+    private defaultBet = 1;
+    private minBet = 1;
+    private maxBet: number;
+
+    private loserMultiplier = 1;
+    private winnerMultiplier = 2;
 
     public constructor(data: GameData<PmuState, PmuOptions>) {
         const stepNumber = data.options.step;
+        const bet = data.options.bet;
+
         const deck = shuffleDeck(
             createDeck56().filter(card => card.rank !== "A")
         );
@@ -44,16 +48,17 @@ export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
             winner: null,
             lastDrawnCard: null
         });
+        this.maxBet = bet;
     }
 
-    private static resolveBet(raw: unknown): number {
+    private resolveBet(raw: unknown): number {
         const value = Math.trunc(Number(raw));
 
         if (!Number.isFinite(value)) {
-            return DEFAULT_BET;
+            return this.defaultBet;
         }
 
-        return Math.max(MIN_BET, Math.min(MAX_BET, value));
+        return Math.max(this.minBet, Math.min(this.maxBet, value));
     }
 
     public async initialize(): Promise<void> {
@@ -109,7 +114,7 @@ export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
 
         const normalized: PmuChoice = {
             cardSuit: choice.cardSuit,
-            bet: PmuGame.resolveBet(choice.bet)
+            bet: this.resolveBet(choice.bet)
         };
 
         state.choices[playerId] = normalized;
@@ -214,7 +219,7 @@ export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
                     cardSuit: choice.cardSuit,
                     bet: choice.bet,
                     won,
-                    gorgees: choice.bet * (won ? WINNER_MULTIPLIER : LOSER_MULTIPLIER)
+                    gorgees: choice.bet * (won ? this.winnerMultiplier : this.loserMultiplier)
                 };
             });
     }
