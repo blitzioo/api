@@ -4,10 +4,12 @@ import GameSessionService from "../../game-sessions/game-session.service.js";
 import GamesRepository from "../../games/core/games.repository.js";
 import BaseGame from "../../games/core/games/base-game.js";
 import { RoomOptions } from "../room.types.js";
-import roomEventsUtils from "./room-events.utils.js";
 import GamesOptionsParser from "../../games/core/options/options.parser.js";
+import { broadcastToRoom } from "../../../realtime/utils/broadcast.js";
+import RoomService from "../room.service.js";
 
 const gameSession = new GameSessionService();
+const roomService = new RoomService();
 const gameRepository = new GamesRepository();
 
 export const registerRoomEvents = async ({ socket, io }: IEventParams) => {
@@ -38,7 +40,8 @@ export const registerRoomEvents = async ({ socket, io }: IEventParams) => {
             const gameParser = GamesOptionsParser.parse(game.options);
             const parsedOptions = gameParser.parse(selectedOptions ?? {});
 
-            roomEventsUtils.broadcast(io, {
+            await roomService.startRoom(roomCode);
+            broadcastToRoom(io, {
                 roomCode,
                 eventName: "room:started"
             });
@@ -48,6 +51,7 @@ export const registerRoomEvents = async ({ socket, io }: IEventParams) => {
                 roomCode,
                 {
                     roomCode,
+                    roomHostId: room.hostId,
                     players: room.players,
                     state: room.state,
                     options: parsedOptions,

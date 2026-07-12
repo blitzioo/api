@@ -51,6 +51,10 @@ export default class BalloonGame extends BaseGame<BalloonState> {
         this.broadcastPublicData(this.getState());
     }
 
+    public handlePlayerTimeout(playerId: string) {
+        this.removePlayer(playerId);
+    }
+
     public initialize(): void {
         this.broadcastPublicData(this.getState());
     }

@@ -3,11 +3,12 @@ import GameSessionService from "../../../game-sessions/game-session.service.js";
 import { GameSessionState } from "../../../game-sessions/game-session.types.js";
 import { gameClasses, GameEnum } from "./game.enum.js";
 import {RoomSockets} from "../../../../realtime/socket-registry.js";
-import { PublicRoomPlayer, RoomOptions, RoomPlayer } from "../../../rooms/room.types.js";
-import roomEventsUtils from "../../../rooms/realmtime/room-events.utils.js";
+import { PlayerStatus, PublicRoomPlayer, RoomOptions, RoomPlayer } from "../../../rooms/room.types.js";
+import { broadcastToRoom } from "../../../../realtime/utils/broadcast.js";
 
 export interface GameData<T = GameSessionState, V = RoomOptions> {
   roomCode: string;
+  roomHostId: string;
   players: RoomPlayer[];
   state: T;
   options: V;
@@ -28,19 +29,21 @@ export default abstract class BaseGame<TGameState extends GameSessionState, TGam
   private readonly gameSessionService = new GameSessionService();
 
   private readonly roomCode: string;
+  private readonly roomHostId: string;
 
-  private readonly players: RoomPlayer[];
+  private players: RoomPlayer[];
   private readonly io: Server;
   private readonly roomSockets: RoomSockets;
 
   private state: TGameState;
   private options: TGameOptions;
 
-  public constructor({ roomCode, players, state, io, options }: GameData<TGameState, TGameOptions>, initialState: TGameState) {
+  public constructor({ roomCode, roomHostId, players, state, io, options }: GameData<TGameState, TGameOptions>, initialState: TGameState) {
     this.players = players;
     this.io = io;
     this.roomSockets = RoomSockets.from(roomCode);
     this.roomCode = roomCode;
+    this.roomHostId = roomHostId;
     this.options = options ?? {};
 
     const isEmptyState = Object.keys(state).length < 1;
@@ -76,6 +79,13 @@ export default abstract class BaseGame<TGameState extends GameSessionState, TGam
     return this.players.find((player) => player.id === playerId);
   }
 
+  protected getHost() {
+    return this.getPlayers().find(p => p.id === this.roomHostId);
+  }
+  protected getHostId() {
+    return this.roomHostId;
+  }
+
   protected async updateState(newState: TGameState) {
     this.state = newState;
     await this.gameSessionService.updateState(this.getCode(), this.state);
@@ -91,7 +101,7 @@ export default abstract class BaseGame<TGameState extends GameSessionState, TGam
   }
 
   protected broadcast(data?: any) {
-    roomEventsUtils.broadcast(this.io, {
+    broadcastToRoom(this.io, {
       roomCode: this.roomCode,
       eventName: "game:public-data",
       data
@@ -100,9 +110,28 @@ export default abstract class BaseGame<TGameState extends GameSessionState, TGam
 
   public abstract syncPlayer(playerId: string): Promise<void>|void;
 
+  public abstract handlePlayerTimeout(playerId: string): Promise<void>|void;
+
+  protected removePlayer(playerId: string) {
+    this.players.splice(
+      this.players.findIndex(p => playerId === p.id),
+      1
+    );
+  }
+
   public abstract initialize(): Promise<void>|void;
 
   public abstract handleAction(payload: TGameAction): void|Promise<void>;
+
+  public updatePlayerConnectionStatus(id: string, status: PlayerStatus) {
+    const players = this.players;
+    const playerIdx = players.findIndex(p => p.id === id);
+    if(playerIdx === -1) {
+      throw new Error("Player not found");
+    }
+    this.players.at(playerIdx)!.connectionStatus = status;
+    this.players = players;
+  }
 
   public static async loadById(gameId: GameEnum, roomCode: string, data?: GameData) {
       const loader = gameClasses[gameId];

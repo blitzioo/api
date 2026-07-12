@@ -1,56 +1,98 @@
 import redis from "../../core/redis.js";
 import RoomRepository from "../rooms/room.repository.js";
-import { RoomStatus } from "../rooms/room.types.js";
-import { GameSession } from "./game-session.types.js";
+import { PlayerStatus, RoomStatus } from "../rooms/room.types.js";
+import {
+  GameSession,
+} from "./game-session.types.js";
 
 type GameSessionUpdate = Partial<GameSession>;
 
 export default class GameSessionRepository {
+  public async findByCode(code: string): Promise<GameSession | null> {
+    const raw = await redis.get(RoomRepository.getRoomKey(code));
 
-    public async findByCode(code: string): Promise<GameSession | null> {
-        const raw = await redis.get(RoomRepository.getRoomKey(code));
-        if (!raw) return null;
-
-        const data = JSON.parse(raw);
-        return {
-            ...data,
-            state: data.state ?? {},
-            startedAt: data.startedAt ?? undefined,
-            endedAt: data.endedAt ?? undefined
-        } as GameSession;
+    if (!raw) {
+      return null;
     }
 
-    public async update(
-        code: string,
-        patch: GameSessionUpdate
-    ): Promise<GameSession | null> {
-        const room = await this.findByCode(code);
-        if (!room) return null;
+    const data = JSON.parse(raw);
 
-        const updated: GameSession = {
-            ...room,
-            ...patch
-        };
+    return {
+      ...data,
+      state: data.state ?? {},
+      startedAt: data.startedAt ?? undefined,
+      endedAt: data.endedAt ?? undefined,
+    } as GameSession;
+  }
 
-        await redis.set(RoomRepository.getRoomKey(code), JSON.stringify(updated), {
-            EX: RoomRepository.ROOM_TTL_SECONDS
-        });
+  public async update(
+    code: string,
+    patch: GameSessionUpdate
+  ): Promise<GameSession | null> {
+    const session = await this.findByCode(code);
 
-        return updated;
+    if (!session) {
+      return null;
     }
 
-    public async updateStatus(
-        code: string,
-        status: RoomStatus
-    ): Promise<GameSession | null> {
-        return this.update(code, { status } as Partial<GameSession>);
+    const updated: GameSession = {
+      ...session,
+      ...patch,
+    };
+
+    await redis.set(
+      RoomRepository.getRoomKey(code),
+      JSON.stringify(updated),
+      {
+        EX: RoomRepository.ROOM_TTL_SECONDS,
+      }
+    );
+
+    return updated;
+  }
+
+  public async updateStatus(
+    code: string,
+    status: RoomStatus
+  ): Promise<GameSession | null> {
+    return this.update(code, { status });
+  }
+
+  public async updateState(
+    code: string,
+    state: GameSession["state"]
+  ): Promise<GameSession | null> {
+    return this.update(code, { state });
+  }
+
+  public async updatePlayerConnectionStatus(
+    code: string,
+    playerId: string,
+    connectionStatus: PlayerStatus
+  ): Promise<GameSession | null> {
+    const session = await this.findByCode(code);
+
+    if (!session) {
+      return null;
     }
 
-    public async updateState(
-        code: string,
-        state: GameSession["state"]
-    ): Promise<GameSession | null> {
-        return this.update(code, { state });
+    const playerExists = session.players.some(
+      (player) => player.id === playerId
+    );
+
+    if (!playerExists) {
+      return null;
     }
 
+    const players = session.players.map((player) =>
+      player.id === playerId
+        ? {
+            ...player,
+            connectionStatus,
+          }
+        : player
+    );
+
+    return this.update(code, { players });
+  }
 }

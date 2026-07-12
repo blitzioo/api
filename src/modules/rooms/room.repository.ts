@@ -1,4 +1,4 @@
-import { Room, RoomOptions, RoomStatus } from "./room.types.js";
+import { Room, RoomOptions, PlayerStatus, RoomStatus } from "./room.types.js";
 import redis from "../../core/redis.js";
 import { GameEnum } from "../games/core/games/game.enum.js";
 
@@ -27,8 +27,7 @@ export default class RoomRepository {
                 {
                     id: params.hostId,
                     username: params.hostUsername,
-                    isHost: true,
-                    isReady: true
+                    status: PlayerStatus.CONNECTED
                 }
             ],
             createdAt: new Date()

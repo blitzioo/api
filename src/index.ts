@@ -4,7 +4,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 
 import { initDatabase } from "./database/sequezlie.js";
-import { registerWebsocket } from "./realtime/socket.js";
+import { registerWebsocket } from "./realtime/socket-server.js";
 
 import registerModules from "./modules/register-modules.js";
 import logger from "./core/logger.js";

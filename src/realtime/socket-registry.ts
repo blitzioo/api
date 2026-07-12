@@ -1,17 +1,16 @@
 import { Socket } from "socket.io";
-import roomEventsUtils from "../modules/rooms/realmtime/room-events.utils.js";
+import { resolveSessionRoom } from "./utils/broadcast.js";
 
 class RoomSockets {
 
     private static socketsByRoomCode = new Map<string, Map<string, Socket>>();
-    private static connectedPlayers = new Map<string, Set<string>>();
     
     private readonly code: string;
     private readonly tag: string;
 
     private constructor(code: string) {
         this.code = code;
-        this.tag = roomEventsUtils.resolveTag(code);
+        this.tag = resolveSessionRoom(code);
     }
 
     public getSockets() {
@@ -21,14 +20,6 @@ class RoomSockets {
             RoomSockets.socketsByRoomCode.set(this.code, sockets);
         }
         return sockets;
-    }
-    public getConnectedPlayers() {
-        let connectedPlayers = RoomSockets.connectedPlayers.get(this.code);
-        if(!connectedPlayers) {
-            connectedPlayers = new Set();
-            RoomSockets.connectedPlayers.set(this.code, connectedPlayers);
-        }
-        return connectedPlayers;
     }
 
     public getSocket(id: string) {
@@ -41,9 +32,7 @@ class RoomSockets {
     public register(id: string, socket: Socket) {
         if(this.hasSocket(id)) return;
         
-        socket.join(this.tag);
-        this.getConnectedPlayers().add(id);   
-        
+        socket.join(this.tag);        
         this.getSockets().set(id, socket);
     }
     public unregister(id: string) {
@@ -51,8 +40,6 @@ class RoomSockets {
 
         const socket = this.getSocket(id)!;
         socket.leave(this.tag);
-        this.getConnectedPlayers().delete(id);
-        
         this.getSockets().delete(id);
     }
 
@@ -60,7 +47,6 @@ class RoomSockets {
         return this.getSockets().size === 0;
     }
     public flush() {
-        RoomSockets.connectedPlayers.delete(this.code);
         RoomSockets.socketsByRoomCode.delete(this.code);
     }
 

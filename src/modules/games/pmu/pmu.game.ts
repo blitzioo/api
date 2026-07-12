@@ -87,7 +87,7 @@ export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
             }
 
             case "play-round": {
-                if (!this.getPlayer(playerId)?.isHost) {
+                if (playerId  !== this.getHostId()) {
                     throw new Error("Only the host can play a round");
                 }
                 await this.playRound();
@@ -195,7 +195,7 @@ export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
             choices: state.choices,
             results: this.getResults(state),
             players: this.getPlayers({ publicData: true }),
-            hostId: this.getPlayers().find((player) => (player as RoomPlayer).isHost)?.id ?? null
+            hostId: this.getHostId()
         };
     }
 
@@ -237,5 +237,9 @@ export default class PmuGame extends BaseGame<PmuState, PmuOptions> {
         }
 
         return handicaps;
+    }
+
+    public handlePlayerTimeout() {
+        return;
     }
 }

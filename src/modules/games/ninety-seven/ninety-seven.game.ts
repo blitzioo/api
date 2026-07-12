@@ -91,6 +91,10 @@ export default class NinetySevenGame extends BaseGame<NinetySevenState> {
 
         this.broadcastPublicState(state);
     }
+    
+    public handlePlayerTimeout(playerId: string) {
+        this.removePlayer(playerId);
+    }
 
     private async playCard(
         playerId: string,

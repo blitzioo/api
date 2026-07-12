@@ -1,5 +1,5 @@
 import RoomRepository from "./room.repository.js";
-import { Room, RoomStatus } from "./room.types.js";
+import { Room, PlayerStatus, RoomStatus } from "./room.types.js";
 import { GameEnum } from "../games/core/games/game.enum.js";
 import { generateRandomCode } from "../../utils/global.utils.js";
 import HttpError from "../../core/errors/http-error.js";
@@ -95,8 +95,7 @@ export default class RoomService {
             room.players.push({
                 id: player.id,
                 username: player.username,
-                isHost: room.hostId === player.id,
-                isReady: true
+                status: PlayerStatus.CONNECTED
             });
         }
 
@@ -139,6 +138,22 @@ export default class RoomService {
                 isHost: player.id === newHost.id
             }));
         }
+
+        return this.roomRepository.update(room);
+    }
+
+    public async startRoom(code: string): Promise<Room> {
+        const room = await this.roomRepository.findByCode(code);
+
+        if (!room) {
+            throw new HttpError("Room not found", 404);
+        }
+
+        if (room.status !== RoomStatus.WAITING) {
+            throw new HttpError("Room already started", 409);
+        }
+
+        room.status = RoomStatus.PLAYING;
 
         return this.roomRepository.update(room);
     }

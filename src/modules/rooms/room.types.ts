@@ -5,15 +5,21 @@ export enum RoomStatus {
     PLAYING = "playing",
     CLOSED = "closed"
 }
+export enum PlayerStatus {
+    CONNECTED = "CONNECTED",
+    DISCONNECTED = "DISCONNECTED",
+    TIMEOUT = "TIMEOUT"
+}
+
 export type RoomOptions = Record<string, unknown>;
 
-export interface RoomPlayer extends PublicRoomPlayer {
-    isHost: boolean;
-    isReady: boolean;
-}
 export interface PublicRoomPlayer {
     id: string;
     username: string;
+}
+export interface RoomPlayer extends PublicRoomPlayer {
+    connectionStatus: PlayerStatus;
+    disconnectedAt?: Date;
 }
 export interface Room {
     code: string;

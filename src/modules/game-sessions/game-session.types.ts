@@ -6,4 +6,4 @@ export interface GameSession extends Room {
     state: GameSessionState;
     startedAt?: Date;
     endedAt?: Date;
-}
+} 
