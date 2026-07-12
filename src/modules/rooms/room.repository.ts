@@ -27,7 +27,7 @@ export default class RoomRepository {
                 {
                     id: params.hostId,
                     username: params.hostUsername,
-                    status: PlayerStatus.CONNECTED
+                    connectionStatus: PlayerStatus.CONNECTED
                 }
             ],
             createdAt: new Date()

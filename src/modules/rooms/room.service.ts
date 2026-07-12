@@ -95,7 +95,7 @@ export default class RoomService {
             room.players.push({
                 id: player.id,
                 username: player.username,
-                status: PlayerStatus.CONNECTED
+                connectionStatus: PlayerStatus.CONNECTED
             });
         }
 
